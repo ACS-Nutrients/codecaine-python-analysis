@@ -1,0 +1,11 @@
+# user
+$ jdbc:postgresql://13.125.230.157:5432/vitamin_user?user=vitamin_user&password=vitamin_user123!
+
+# analysis
+$ jdbc:postgresql://13.125.230.157:5432/vitamin_analysis?user=vitamin_analysis&password=vitamin_analysis123!
+
+# history
+$ jdbc:postgresql://13.125.230.157:5432/vitamin_history?user=vitamin_history&password=vitamin_history123!
+
+# chatbot
+$ http://13.125.230.157:8000
