@@ -97,7 +97,7 @@ cp .env.example .env
 ### 3. 환경변수 설정 (.env)
 
 ```env
-DATABASE_URL=postgresql://vitamin_analysis:vitamin_analysis123!@13.125.230.157:5432/vitamin_analysis
+DATABASE_URL=postgresql://vitamin_analysis:vitamin_analysis123!@cdci-prd-analysis-cluster.cluster-cfm0iecq8xen.ap-northeast-2.rds.amazonaws.com:5432/vitamin_analysis
 AWS_REGION=us-east-1
 BEDROCK_AGENT_ID=placeholder
 BEDROCK_AGENT_ALIAS_ID=placeholder

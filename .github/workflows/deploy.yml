@@ -48,7 +48,7 @@ jobs:
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$TIMESTAMP \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
             -f Dockerfile \
-            services/python/${{ env.SERVICE_NAME }}
+            .
           
           echo "📤 Pushing images to ECR..."
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
