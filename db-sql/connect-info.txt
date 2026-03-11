@@ -1,11 +1,11 @@
 # user
-$ jdbc:postgresql://13.125.230.157:5432/vitamin_user?user=vitamin_user&password=vitamin_user123!
+$ jdbc:postgresql://cdci-prd-analysis-cluster.cluster-cfm0iecq8xen.ap-northeast-2.rds.amazonaws.com:5432/vitamin_user?user=vitamin_user&password=vitamin_user123!
 
 # analysis
-$ jdbc:postgresql://13.125.230.157:5432/vitamin_analysis?user=vitamin_analysis&password=vitamin_analysis123!
+$ jdbc:postgresql://cdci-prd-analysis-cluster.cluster-cfm0iecq8xen.ap-northeast-2.rds.amazonaws.com:5432/vitamin_analysis?user=vitamin_analysis&password=vitamin_analysis123!
 
 # history
-$ jdbc:postgresql://13.125.230.157:5432/vitamin_history?user=vitamin_history&password=vitamin_history123!
+$ jdbc:postgresql://cdci-prd-analysis-cluster.cluster-cfm0iecq8xen.ap-northeast-2.rds.amazonaws.com:5432/vitamin_history?user=vitamin_history&password=vitamin_history123!
 
 # chatbot
-$ http://13.125.230.157:8000
+$ http://dynamodb.ap-northeast-2.amazonaws.com:8000
