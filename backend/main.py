@@ -22,6 +22,11 @@ def root():
     return {"message": "Analysis Service API", "status": "running"}
 
 
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
+
+
 @app.post("/api/analysis/calculate", response_model=dict)
 def calculate_analysis(
     request: schemas.AnalysisCalculateRequest,
