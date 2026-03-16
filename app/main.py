@@ -18,3 +18,7 @@ app.include_router(api_router)
 @app.get("/")
 def root():
     return {"message": "Analysis Service API", "status": "running"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
