@@ -1,20 +1,34 @@
 from pydantic_settings import BaseSettings
+from typing import Optional
+
 
 class Settings(BaseSettings):
-    database_url: str
+    # DATABASE_URL 직접 주입 또는 개별 변수로 조합 (ECS 환경)
+    database_url: Optional[str] = None
+    db_user: Optional[str] = None
+    db_password: Optional[str] = None
+    db_host: Optional[str] = None
+    db_port: str = "5432"
+    db_name: Optional[str] = None
+
     aws_region: str = "ap-northeast-2"
     bedrock_agent_id: str = "placeholder"
     bedrock_agent_alias_id: str = "placeholder"
-    codef_client_id: str = ""
-    codef_client_secret: str = ""
 
-    # S3 — CODEF 원본 데이터 저장용
-    s3_bucket_name: str = ""
-    aws_access_key_id: str = ""
-    aws_secret_access_key: str = ""
-
+    cognito_user_pool_id: str
+    cognito_region: str = "ap-northeast-2"
 
     class Config:
         env_file = ".env"
+
+    def get_database_url(self) -> str:
+        if self.database_url:
+            return self.database_url
+        if all([self.db_user, self.db_password, self.db_host, self.db_name]):
+            return f"postgresql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
+        raise ValueError(
+            "DB 연결 정보 없음: DATABASE_URL 또는 DB_USER/DB_PASSWORD/DB_HOST/DB_NAME 환경변수를 설정하세요."
+        )
+
 
 settings = Settings()

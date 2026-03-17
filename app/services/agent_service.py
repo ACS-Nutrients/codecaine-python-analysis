@@ -14,7 +14,7 @@ def call_llm_agent(
 
     Args:
         cognito_id: 사용자 ID
-        user_data: CODEF 건강검진 데이터 + 사용자 입력 정보
+        user_data: 건강검진 데이터 + 사용자 입력 정보
         supplements: 현재 복용 중인 영양제 정보
         medications: 복용 중인 의약품 리스트
         purpose: 영양제 복용 목적
