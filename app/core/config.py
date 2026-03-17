@@ -15,8 +15,9 @@ class Settings(BaseSettings):
     bedrock_agent_id: str = "placeholder"
     bedrock_agent_alias_id: str = "placeholder"
 
-    cognito_user_pool_id: str
+    cognito_user_pool_id: str = ""
     cognito_region: str = "ap-northeast-2"
+    cognito_client_id: str = ""
 
     class Config:
         env_file = ".env"

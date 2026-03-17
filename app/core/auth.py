@@ -10,8 +10,8 @@ _bearer = HTTPBearer()
 
 
 @lru_cache(maxsize=1)
-def _get_jwks() -> dict:
-    """Cognito JWKS를 가져와 kid → key 매핑으로 캐싱"""
+def _fetch_jwks() -> dict:
+    """Cognito JWKS를 가져와 kid → key 매핑으로 캐싱 (성공한 결과만 캐싱됨)"""
     url = (
         f"https://cognito-idp.{settings.cognito_region}.amazonaws.com"
         f"/{settings.cognito_user_pool_id}/.well-known/jwks.json"
@@ -20,6 +20,27 @@ def _get_jwks() -> dict:
     response.raise_for_status()
     keys = response.json().get("keys", [])
     return {k["kid"]: k for k in keys}
+
+
+def _get_jwks() -> dict:
+    """환경변수 검증 후 JWKS 반환. 실패 시 HTTPException으로 변환."""
+    if not settings.cognito_user_pool_id:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="COGNITO_USER_POOL_ID 환경변수가 설정되지 않았습니다.",
+        )
+    try:
+        return _fetch_jwks()
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Cognito JWKS 요청 실패: {e}",
+        )
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Cognito JWKS 응답 오류: {e.response.status_code}",
+        )
 
 
 def _verify_token(token: str) -> dict:
@@ -50,6 +71,11 @@ def _verify_token(token: str) -> dict:
         )
     except JWTError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Token validation failed: {e}")
+
+    # Access Token의 client_id 클레임으로 App Client ID 수동 검증
+    if settings.cognito_client_id:
+        if payload.get("client_id") != settings.cognito_client_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token client_id mismatch")
 
     return payload
 

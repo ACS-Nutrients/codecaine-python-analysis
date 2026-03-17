@@ -1,10 +1,11 @@
-from sqlalchemy import Column, BigInteger, String, Integer, Numeric, Date, Boolean, TIMESTAMP, JSON
+from sqlalchemy import Column, BigInteger, String, Integer, Numeric, Date, Boolean, TIMESTAMP
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 from app.db.database import Base
 
 
 class UnitConvertor(Base):
-    __tablename__ = "unit_convertor"
+    __tablename__ = "ans_unit_convertor"
 
     vitamin_name = Column(String(255), primary_key=True)
     convert_unit = Column(Numeric(12, 8))
@@ -28,7 +29,7 @@ class AnalysisResult(Base):
 
     result_id = Column(BigInteger, primary_key=True, autoincrement=True)
     cognito_id = Column(String(36), nullable=False, index=True)
-    summary_jsonb = Column(JSON)
+    summary_jsonb = Column(JSONB)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
 class NutrientGap(Base):
@@ -36,7 +37,6 @@ class NutrientGap(Base):
 
     gap_id = Column(BigInteger, primary_key=True, autoincrement=True)
     result_id = Column(BigInteger, nullable=False, index=True)
-    cognito_id = Column(String(36), nullable=False, index=True)
     nutrient_id = Column(BigInteger, nullable=False, index=True)
     current_amount = Column(Integer)
     gap_amount = Column(Integer)
@@ -95,7 +95,7 @@ class AnalysisSupplement(Base):
     ans_serving_per_day = Column(Integer)
     ans_daily_total_amount = Column(Integer)
     ans_is_active = Column(Boolean)
-    ans_ingredients = Column(JSON)
+    ans_ingredients = Column(JSONB)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
 
@@ -105,7 +105,6 @@ class AnaysisCurrentIngredient(Base):
 
     ans_ingredient_id = Column(BigInteger, primary_key=True, autoincrement=True)
     ans_current_id = Column(BigInteger, nullable=False, index=True)
-    cognito_id = Column(String(36), nullable=False, index=True)
     ans_ingredient_name = Column(String(255))
     ans_nutrient_amount = Column(Integer)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
@@ -116,7 +115,6 @@ class Recommendation(Base):
     rec_id = Column(BigInteger, primary_key=True, autoincrement=True)
     product_id = Column(BigInteger, nullable=False)
     result_id = Column(BigInteger, nullable=False)
-    cognito_id = Column(String(36), nullable=False)
     recommend_serving = Column(Integer)
     rank = Column(Integer)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
