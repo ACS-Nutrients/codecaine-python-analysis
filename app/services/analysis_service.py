@@ -9,7 +9,7 @@ def start_analysis(db: Session, cognito_id: str, purpose: str, medications: List
     """
     분석 시작.
     — 건강 데이터는 DB 조회 없이 요청 파라미터(health_check_data)에서 직접 사용한다.
-      (CODEF 원본은 S3에 보관, 사용자가 수정한 최종값이 여기로 전달됨)
+      (사용자가 수정한 최종값이 여기로 전달됨)
     """
     hd = health_check_data or {}
 
