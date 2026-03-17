@@ -70,7 +70,6 @@ def start_analysis(db: Session, cognito_id: str, purpose: str, medications: List
         for gap in nutrient_gaps:
             gap_record = models.NutrientGap(
                 result_id=result_id,
-                cognito_id=cognito_id,
                 nutrient_id=gap["nutrient_id"],
                 current_amount=gap["current_amount"],
                 gap_amount=gap["gap_amount"]
@@ -124,7 +123,6 @@ def recommend_products(
         rec = models.Recommendation(
             product_id=product.product_id,
             result_id=result_id,
-            cognito_id=cognito_id,
             recommend_serving=product.serving_per_day,
             rank=rank
         )
@@ -154,10 +152,7 @@ def get_analysis_result(db: Session, result_id: int, cognito_id: str) -> Dict:
         models.Nutrient,
         models.NutrientGap.nutrient_id == models.Nutrient.nutrient_id
     ).filter(
-        and_(
-            models.NutrientGap.result_id == result_id,
-            models.NutrientGap.cognito_id == cognito_id
-        )
+        models.NutrientGap.result_id == result_id
     ).all()
 
     nutrient_gaps = []
@@ -193,10 +188,7 @@ def get_recommendations(db: Session, result_id: int, cognito_id: str) -> List[Di
         models.Product,
         models.Recommendation.product_id == models.Product.product_id
     ).filter(
-        and_(
-            models.Recommendation.result_id == result_id,
-            models.Recommendation.cognito_id == cognito_id
-        )
+        models.Recommendation.result_id == result_id
     ).order_by(models.Recommendation.rank).all()
 
     result = []
