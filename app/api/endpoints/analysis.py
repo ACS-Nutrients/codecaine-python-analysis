@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.schemas.analysis import AnalysisCalculateRequest, AnalysisResultResponse
 from app.services import analysis_service
 from app.db.database import get_db
+from app.core.auth import get_current_user
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 
@@ -10,7 +11,8 @@ router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 @router.post("/calculate", response_model=dict)
 def calculate_analysis(
     request: AnalysisCalculateRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    cognito_id: str = Depends(get_current_user),
 ):
     """분석 실행 — 건강 데이터를 요청 본문에서 직접 받아 처리 후 결과를 DB에 저장"""
     try:
@@ -19,7 +21,7 @@ def calculate_analysis(
 
         result_id = analysis_service.start_analysis(
             db=db,
-            cognito_id=request.cognito_id,
+            cognito_id=cognito_id,
             purpose=purpose_str,
             medications=[],
             health_check_data=request.health_check_data.model_dump() if request.health_check_data else {},
@@ -35,8 +37,8 @@ def calculate_analysis(
 @router.get("/result/{result_id}", response_model=AnalysisResultResponse)
 def get_analysis_result(
     result_id: int,
-    cognito_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    cognito_id: str = Depends(get_current_user),
 ):
     """분석 결과 조회"""
     try:
@@ -61,8 +63,8 @@ router_recommendations = APIRouter(prefix="/api/analysis/recommendations", tags=
 @router_recommendations.get("/{result_id}", response_model=dict)
 def get_recommendations(
     result_id: int,
-    cognito_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    cognito_id: str = Depends(get_current_user),
 ):
     """추천 영양제 목록 조회"""
     try:

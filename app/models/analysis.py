@@ -27,7 +27,7 @@ class AnalysisResult(Base):
     __tablename__ = "analysis_result"
 
     result_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    cognito_id = Column(String(36), primary_key=True)
+    cognito_id = Column(String(36), nullable=False, index=True)
     summary_jsonb = Column(JSON)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
@@ -35,9 +35,9 @@ class NutrientGap(Base):
     __tablename__ = "nutrient_gap"
 
     gap_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    result_id = Column(BigInteger, primary_key=True)
-    cognito_id = Column(String(36), primary_key=True)
-    nutrient_id = Column(BigInteger, primary_key=True)
+    result_id = Column(BigInteger, nullable=False, index=True)
+    cognito_id = Column(String(36), nullable=False, index=True)
+    nutrient_id = Column(BigInteger, nullable=False, index=True)
     current_amount = Column(Integer)
     gap_amount = Column(Integer)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
@@ -55,7 +55,7 @@ class NutrientReferenceIntake(Base):
     __tablename__ = "nutrient_reference_intake"
 
     ref_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    nutrient_id = Column(BigInteger, primary_key=True)
+    nutrient_id = Column(BigInteger, nullable=False, index=True)
     gender = Column(Integer)
     age_min = Column(Integer)
     age_max = Column(Integer)
@@ -78,8 +78,8 @@ class ProductNutrient(Base):
     __tablename__ = "product_nutrients"
 
     prdt_nutrient_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    product_id = Column(BigInteger, primary_key=True)
-    nutrient_id = Column(BigInteger, primary_key=True)
+    product_id = Column(BigInteger, nullable=False, index=True)
+    nutrient_id = Column(BigInteger, nullable=False, index=True)
     amount_per_serving = Column(Integer)
     amount_per_day = Column(Integer)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
@@ -89,7 +89,7 @@ class AnalysisSupplement(Base):
     __tablename__ = "analysis_supplements"
 
     ans_current_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    cognito_id = Column(String(36), primary_key=True)
+    cognito_id = Column(String(36), nullable=False, index=True)
     ans_product_name = Column(String(255))
     ans_serving_amount = Column(Integer)
     ans_serving_per_day = Column(Integer)
@@ -104,8 +104,8 @@ class AnaysisCurrentIngredient(Base):
     __tablename__ = "anaysis_current_ingredients"  # SQL 원본 오타 유지
 
     ans_ingredient_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    ans_current_id = Column(BigInteger, primary_key=True)
-    cognito_id = Column(String(36), primary_key=True)
+    ans_current_id = Column(BigInteger, nullable=False, index=True)
+    cognito_id = Column(String(36), nullable=False, index=True)
     ans_ingredient_name = Column(String(255))
     ans_nutrient_amount = Column(Integer)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())

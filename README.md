@@ -53,15 +53,6 @@ AWS_REGION=ap-northeast-2
 # AWS Bedrock Agent
 BEDROCK_AGENT_ID=<Bedrock Agent ID>
 BEDROCK_AGENT_ALIAS_ID=<Bedrock Agent Alias ID>
-
-# CODEF (국민건강보험 API)
-CODEF_CLIENT_ID=<CODEF OAuth2 Client ID>
-CODEF_CLIENT_SECRET=<CODEF OAuth2 Client Secret>
-
-# AWS S3 (CODEF 원본 데이터 보관)
-S3_BUCKET_NAME=<S3 버킷 이름>
-AWS_ACCESS_KEY_ID=<IAM Access Key>
-AWS_SECRET_ACCESS_KEY=<IAM Secret Key>
 ```
 
 ---

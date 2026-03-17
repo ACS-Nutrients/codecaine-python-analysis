@@ -3,7 +3,7 @@ from sqlalchemy import and_, desc
 from typing import List, Dict
 from app.models import analysis as models
 from app.services.nutrient_calculator import calculate_nutrient_gaps
-from app.services.agent_service import call_llm_agent, call_recommendation_agent
+from app.services.agent_service import call_llm_agent
 
 def start_analysis(db: Session, cognito_id: str, purpose: str, medications: List[str], health_check_data: Dict = None) -> int:
     """
@@ -51,35 +51,39 @@ def start_analysis(db: Session, cognito_id: str, purpose: str, medications: List
     nutrient_gaps = calculate_nutrient_gaps(db, cognito_id, llm_recommended)
 
     # 5. 분석 결과 저장
-    result = models.AnalysisResult(
-        cognito_id=cognito_id,
-        summary_jsonb={
-            "purpose": purpose,
-            "medications": medications,
-            "status": "completed",
-            "llm_recommended": llm_recommended,
-        }
-    )
-    db.add(result)
-    db.flush()
-
-    result_id = result.result_id
-
-    # 6. 영양소 부족량 저장
-    for gap in nutrient_gaps:
-        gap_record = models.NutrientGap(
-            result_id=result_id,
+    try:
+        result = models.AnalysisResult(
             cognito_id=cognito_id,
-            nutrient_id=gap["nutrient_id"],
-            current_amount=gap["current_amount"],
-            gap_amount=gap["gap_amount"]
+            summary_jsonb={
+                "purpose": purpose,
+                "medications": medications,
+                "status": "completed",
+                "llm_recommended": llm_recommended,
+            }
         )
-        db.add(gap_record)
+        db.add(result)
+        db.flush()
 
-    # 7. 추천 영양제 생성 (Placeholder)
-    recommend_products(db, result_id, cognito_id, nutrient_gaps)
+        result_id = result.result_id
 
-    db.commit()
+        # 6. 영양소 부족량 저장
+        for gap in nutrient_gaps:
+            gap_record = models.NutrientGap(
+                result_id=result_id,
+                cognito_id=cognito_id,
+                nutrient_id=gap["nutrient_id"],
+                current_amount=gap["current_amount"],
+                gap_amount=gap["gap_amount"]
+            )
+            db.add(gap_record)
+
+        # 7. 추천 영양제 생성 (Placeholder)
+        recommend_products(db, result_id, cognito_id, nutrient_gaps)
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
     return result_id
 
@@ -126,8 +130,7 @@ def recommend_products(
         )
         db.add(rec)
 
-    db.commit()
-
+    # commit은 호출자(start_analysis)에서 일괄 처리
     return [p.product_id for p in products]
 
 def get_analysis_result(db: Session, result_id: int, cognito_id: str) -> Dict:

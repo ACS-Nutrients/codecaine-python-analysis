@@ -157,6 +157,9 @@ def calculate_nutrient_gaps(
     age = calculate_age(user.ans_birth_dt)
     gender = user.ans_gender
 
+    if gender is None:
+        raise ValueError("User gender not set")
+
     # 2. 현재 섭취 중인 영양소 계산 (표준 단위)
     current_intake = calculate_current_nutrient_intake(db, cognito_id)
 

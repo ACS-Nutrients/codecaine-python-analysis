@@ -12,7 +12,6 @@ class HealthCheckData(BaseModel):
 
 
 class AnalysisCalculateRequest(BaseModel):
-    cognito_id: str
     health_check_data: Optional[HealthCheckData] = None
     purposes: Optional[List[str]] = []
 
