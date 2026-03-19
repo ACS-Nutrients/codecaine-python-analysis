@@ -1,67 +1,106 @@
+import json
+import logging
 from typing import Dict, List
+
+import boto3
+from botocore.exceptions import ClientError
+
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+def _lambda_client():
+    kwargs = {"region_name": settings.aws_region}
+    if settings.aws_access_key_id and settings.aws_secret_access_key:
+        kwargs["aws_access_key_id"] = settings.aws_access_key_id
+        kwargs["aws_secret_access_key"] = settings.aws_secret_access_key
+    return boto3.client("lambda", **kwargs)
+
 
 def call_llm_agent(
     cognito_id: str,
     user_data: Dict,
     supplements: List[Dict],
     medications: List[str],
-    purpose: str
+    purpose: str,
 ) -> Dict[int, int]:
     """
-    🔌 TODO: Bedrock Agent 연동 필요
+    analysis-agent Lambda를 직접 호출하여 필요 영양소 권장량 반환.
 
-    LLM Agent 호출 - 1차 영양소 판단
-
-    Args:
-        cognito_id: 사용자 ID
-        user_data: 건강검진 데이터 + 사용자 입력 정보
-        supplements: 현재 복용 중인 영양제 정보
-        medications: 복용 중인 의약품 리스트
-        purpose: 영양제 복용 목적
+    Lambda가 미설정(placeholder)이면 mock 데이터 반환.
 
     Returns:
-        필요한 영양소별 권장 섭취량 {nutrient_id: amount}
-
-    TODO:
-    1. Bedrock Agent 엔드포인트 호출
-    2. 영양제-의약품 상호작용 Knowledge Base 참조
-    3. LLM이 종합 판단하여 필요 영양소 + 권장량 반환
-
-    현재는 Mock 데이터 반환
+        {nutrient_id: recommended_amount}
     """
+    if settings.analysis_lambda_arn == "placeholder":
+        logger.warning("ANALYSIS_LAMBDA_ARN 미설정 — mock 데이터 반환")
+        return _mock()
 
-    # Mock 데이터 (추후 Bedrock Agent 응답으로 교체)
-    return {
-        1: 1000,   # 비타민C 1000mg
-        2: 400,    # 비타민D 400IU
-        3: 600,    # 오메가3 EPA 600mg
-        4: 400,    # 오메가3 DHA 400mg
-        5: 15,     # 아연 15mg
+    # Lambda가 받을 이벤트 (Bedrock Agent Action Group 포맷)
+    event = {
+        "actionGroup": "analysis",
+        "apiPath": "/full-analysis",
+        "httpMethod": "POST",
+        "parameters": [
+            {"name": "user_id",     "value": cognito_id},
+            {"name": "purpose",     "value": purpose},
+            {"name": "medications", "value": json.dumps(medications, ensure_ascii=False)},
+            {"name": "health_data", "value": json.dumps(user_data, ensure_ascii=False)},
+        ],
     }
+
+    try:
+        client = _lambda_client()
+        response = client.invoke(
+            FunctionName=settings.analysis_lambda_arn,
+            InvocationType="RequestResponse",
+            Payload=json.dumps(event).encode(),
+        )
+
+        if response.get("FunctionError"):
+            error_payload = json.loads(response["Payload"].read())
+            logger.error(f"Lambda 함수 오류: {error_payload}")
+            return _mock()
+
+        result = json.loads(response["Payload"].read())
+
+        # Lambda 응답 파싱 (Bedrock Action Group 포맷)
+        body_str = result["response"]["responseBody"]["application/json"]["body"]
+        body = json.loads(body_str)
+
+        if "error" in body:
+            logger.error(f"Lambda 분석 오류: {body['error']}")
+            return _mock()
+
+        # JSON 직렬화로 int 키 → str 키 변환되므로 복원
+        raw = body.get("llm_recommended", {})
+        return {int(k): int(v) for k, v in raw.items()}
+
+    except ClientError as e:
+        logger.error(f"Lambda 호출 실패: {e}")
+        return _mock()
+    except Exception as e:
+        logger.error(f"call_llm_agent 오류: {e}")
+        return _mock()
+
+
+def _mock() -> Dict[int, int]:
+    return {
+        1: 1000,  # 비타민C 1000mg
+        2: 400,   # 비타민D 400IU
+        3: 600,   # 오메가3 EPA 600mg
+        4: 400,   # 오메가3 DHA 400mg
+        5: 15,    # 아연 15mg
+    }
+
 
 def call_recommendation_agent(
     nutrient_gaps: List[Dict],
-    user_preferences: Dict = None
+    user_preferences: Dict = None,
 ) -> List[int]:
     """
     🔌 TODO: AI 추천 Agent 연동 필요
-
-    추천 Agent 호출 - AI 기반 영양제 추천
-
-    Args:
-        nutrient_gaps: 부족한 영양소 리스트
-        user_preferences: 사용자 선호도 (가격, 브랜드 등)
-
-    Returns:
-        추천 제품 ID 리스트 (우선순위 순)
-
-    TODO:
-    1. AI Agent를 활용한 최적 조합 추천
-    2. 1일 투약 횟수 최소화
-    3. 가격 대비 효율 고려
-
-    현재는 간단한 규칙 기반 로직
+    현재는 placeholder — 추후 AI Agent로 교체
     """
-
-    # 현재는 placeholder - 추후 AI Agent로 교체
     return []
