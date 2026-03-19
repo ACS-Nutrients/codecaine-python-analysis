@@ -12,20 +12,16 @@ class Settings(BaseSettings):
     db_name: Optional[str] = None
 
     aws_region: str = "ap-northeast-2"
-    bedrock_agent_id: str = "placeholder"
-    bedrock_agent_alias_id: str = "placeholder"
 
     cognito_user_pool_id: str = ""
-    # Lambda 직접 호출용 ARN
-    # aws lambda get-function --function-name analysis-agent --query 'Configuration.FunctionArn'
-    analysis_lambda_arn: str = "placeholder"
+    cognito_region: str = "ap-northeast-2"
+    cognito_client_id: str = ""
 
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
 
-    cognito_user_pool_id: str
-    cognito_region: str = "ap-northeast-2"
-    cognito_client_id: str = ""
+    # AgentCore Runtime ARN (기존 analysis_lambda_arn 대체)
+    agentcore_runtime_arn: str = "placeholder"
 
     class Config:
         env_file = ".env"
