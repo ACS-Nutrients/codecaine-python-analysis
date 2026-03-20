@@ -41,7 +41,7 @@ class AnalysisResultResponse(BaseModel):
     result_id: int
     cognito_id: str
     status: str
-    summary: Optional[Dict] = None
+    summary: Optional[str] = None
     nutrient_gaps: Optional[List[NutrientGapResponse]] = None
     created_at: Optional[datetime] = None
 
@@ -49,6 +49,6 @@ class AnalysisResultResponse(BaseModel):
 class AnalysisHistoryItem(BaseModel):
     result_id: int
     created_at: Optional[datetime] = None
-    summary: Optional[Dict] = None
+    summary: Optional[str] = None
 
 

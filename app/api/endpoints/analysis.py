@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 from app.schemas.analysis import AnalysisCalculateRequest, AnalysisResultResponse
 from app.services import analysis_service
 from app.db.database import get_db
 from app.core.auth import get_current_user
+
+_bearer = HTTPBearer()
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 
@@ -11,10 +14,11 @@ router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 @router.post("/calculate", response_model=dict)
 def calculate_analysis(
     request: AnalysisCalculateRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
     db: Session = Depends(get_db),
     cognito_id: str = Depends(get_current_user),
 ):
-    """분석 실행 — 건강 데이터를 요청 본문에서 직접 받아 처리 후 결과를 DB에 저장"""
+    """분석 실행 — user 서비스에서 CODEF 데이터 조회 후 AgentCore로 분석"""
     try:
         purposes = request.purposes or []
         purpose_str = ", ".join(purposes) if purposes else "건강 유지"
@@ -23,7 +27,7 @@ def calculate_analysis(
             db=db,
             cognito_id=cognito_id,
             purpose=purpose_str,
-            medications=[],
+            token=credentials.credentials,  # JWT → user 서비스 전달용
             health_check_data=request.health_check_data.model_dump() if request.health_check_data else {},
         )
         return {

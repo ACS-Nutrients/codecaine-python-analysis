@@ -12,12 +12,19 @@ class Settings(BaseSettings):
     db_name: Optional[str] = None
 
     aws_region: str = "ap-northeast-2"
-    bedrock_agent_id: str = "placeholder"
-    bedrock_agent_alias_id: str = "placeholder"
 
     cognito_user_pool_id: str = ""
     cognito_region: str = "ap-northeast-2"
     cognito_client_id: str = ""
+
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+
+    # AgentCore Runtime ARN (기존 analysis_lambda_arn 대체)
+    agentcore_runtime_arn: str = "placeholder"
+
+    # user 서비스 URL (JWT 전달 방식 서비스간 호출)
+    user_service_url: str = "http://localhost:8003"
 
     class Config:
         env_file = ".env"
