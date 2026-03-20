@@ -74,7 +74,8 @@ def _verify_token(token: str) -> dict:
 
     # Access Token의 client_id 클레임으로 App Client ID 수동 검증
     if settings.cognito_client_id:
-        if payload.get("client_id") != settings.cognito_client_id:
+        token_client_id = payload.get("client_id") or payload.get("aud")
+        if token_client_id != settings.cognito_client_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token client_id mismatch")
 
     return payload
