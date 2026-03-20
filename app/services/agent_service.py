@@ -117,6 +117,7 @@ def call_analysis_agent(
     payload = {
         "cognito_id":          cognito_id,
         "intake_purpose":      intake_purpose,
+        "current_conditions":  (user_profile or {}).get("current_conditions"),
         "user_profile":        user_profile or {},
         "codef_health_data":   codef_health_data or {},
         "medication_info":     medication_info or [],

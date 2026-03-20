@@ -18,12 +18,12 @@ def _upsert_intake_purpose(db: Session, cognito_id: str, purpose: str, now: date
         models.AnalysisUserData.cognito_id == cognito_id
     ).first()
     if userdata:
-        userdata.intake_purpose = purpose
+        userdata.ans_current_conditions = purpose
         userdata.updated_at = now
     else:
         db.add(models.AnalysisUserData(
             cognito_id=cognito_id,
-            intake_purpose=purpose,
+            ans_current_conditions=purpose,
             created_at=now,
             updated_at=now,
         ))
@@ -45,7 +45,6 @@ def _get_userdata(db: Session, cognito_id: str) -> Dict:
         "allergies":         userdata.ans_allergies,
         "chron_diseases":    userdata.ans_chron_diseases,
         "current_conditions": userdata.ans_current_conditions,
-        "intake_purpose":    userdata.intake_purpose,
     }
 
 
