@@ -5,7 +5,7 @@ from app.db.database import Base
 
 
 class UnitConvertor(Base):
-    __tablename__ = "unit_convertor"
+    __tablename__ = "ans_unit_convertor"
 
     vitamin_name = Column(String(255), primary_key=True)
     convert_unit = Column(Numeric(12, 8))
@@ -21,7 +21,6 @@ class AnalysisUserData(Base):
     ans_allergies = Column(String(255))
     ans_chron_diseases = Column(String(255))
     ans_current_conditions = Column(String(255))
-    intake_purpose = Column(String(500))
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
 
