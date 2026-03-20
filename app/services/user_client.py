@@ -20,7 +20,7 @@ def get_codef_data(cognito_id: str, token: str) -> dict:
         }
     데이터 없거나 실패 시 빈 값 반환 (분석은 계속 진행).
     """
-    url = f"{settings.user_service_url}/api/users/codef/analysis-data/{cognito_id}"
+    url = f"{settings.user_service_url}/api/users/codef/internal-call/{cognito_id}"
     try:
         response = httpx.get(
             url,
