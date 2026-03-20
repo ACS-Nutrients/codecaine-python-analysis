@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, Integer, Numeric, Date, Boolean, TIMESTAMP
+from sqlalchemy import Column, BigInteger, String, Integer, Numeric, Date, Boolean, TIMESTAMP, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 from app.db.database import Base
@@ -30,7 +30,7 @@ class AnalysisResult(Base):
 
     result_id = Column(BigInteger, primary_key=True, autoincrement=True)
     cognito_id = Column(String(36), nullable=False, index=True)
-    summary_jsonb = Column(JSONB)
+    summary = Column(Text)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
 class NutrientGap(Base):
