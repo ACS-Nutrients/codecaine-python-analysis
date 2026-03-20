@@ -5,6 +5,7 @@ from sqlalchemy import and_, desc
 from typing import List, Dict
 from app.models import analysis as models
 from app.services.agent_service import call_analysis_agent, resolve_nutrient_ids
+from app.services.user_client import get_codef_data
 
 import logging
 logger = logging.getLogger(__name__)
@@ -51,12 +52,15 @@ def start_analysis(
     db: Session,
     cognito_id: str,
     purpose: str,
-    medications: List[str],
+    token: str,
     health_check_data: Dict = None,
 ) -> int:
-    hd = health_check_data or {}
-    medication_info = [{"name": m} for m in medications] if medications else []
     now = datetime.now(timezone.utc)
+
+    # user 서비스에서 CODEF 데이터 조회 (JWT 전달)
+    codef = get_codef_data(cognito_id, token)
+    hd = codef.get("codef_health_data") or health_check_data or {}
+    medication_info = codef.get("medication_info") or []
 
     # intake_purpose를 analysis_userdata에 저장
     _upsert_intake_purpose(db, cognito_id, purpose, now)
