@@ -9,3 +9,4 @@ venv/
 .DS_Store
 .claude/*
 db_init/init.sql
+db_init/migrate_fix_schema.sql
