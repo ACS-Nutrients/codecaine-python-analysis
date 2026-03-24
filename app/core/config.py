@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     aws_secret_access_key: str = ""
 
     # AgentCore Runtime ARN (기존 analysis_lambda_arn 대체)
-    agentcore_runtime_arn: str = "placeholder"
+    agentcore_runtime_arn: str = "arn:aws:bedrock-agentcore:ap-northeast-2:620758375333:runtime/cdci_prd_analysis_agent-wCS0IP7dHa"
 
     # user 서비스 URL (JWT 전달 방식 서비스간 호출)
     user_service_url: str = "http://localhost:8003"
