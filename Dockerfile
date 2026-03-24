@@ -6,11 +6,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# 이것만 추가
+RUN pip install --no-cache-dir opentelemetry-distro opentelemetry-exporter-otlp
+RUN opentelemetry-bootstrap -a install
 
 COPY . .
 
 EXPOSE 8000
 
-# ECS는 SIGTERM으로 컨테이너를 종료하므로 uvicorn이 graceful shutdown 처리
-# --timeout-graceful-shutdown: SIGTERM 수신 후 최대 30초 대기
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info", "--timeout-graceful-shutdown", "30"]
+# CMD만 앞에 opentelemetry-instrument 추가
+CMD ["opentelemetry-instrument", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info", "--timeout-graceful-shutdown", "30"]
