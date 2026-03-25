@@ -107,6 +107,7 @@ CREATE TABLE "nutrient_gap" (
     "cognito_id"     VARCHAR(36)  NOT NULL,
     "current_amount" INTEGER      NULL,
     "gap_amount"     INTEGER      NULL,
+    "unit"           VARCHAR(20)  NULL,
     "created_at"     TIMESTAMPTZ  NULL DEFAULT now(),
     CONSTRAINT "PK_NUTRIENT_GAP" PRIMARY KEY ("gap_id"),
     CONSTRAINT "FK_NG_RESULT"   FOREIGN KEY ("result_id")   REFERENCES "analysis_result" ("result_id"),
