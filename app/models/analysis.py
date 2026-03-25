@@ -41,6 +41,7 @@ class NutrientGap(Base):
     nutrient_id = Column(BigInteger, nullable=False, index=True)
     current_amount = Column(Integer)
     gap_amount = Column(Integer)
+    unit = Column(String(20))
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
 class Nutrient(Base):

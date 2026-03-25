@@ -120,6 +120,7 @@ def start_analysis(
                 nutrient_id=gap["nutrient_id"],
                 current_amount=int(float(gap.get("current_amount", 0))),
                 gap_amount=int(float(gap.get("gap_amount", 0))),
+                unit=gap.get("unit"),
                 created_at=now,
             ))
 

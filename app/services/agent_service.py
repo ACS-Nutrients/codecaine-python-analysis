@@ -138,7 +138,7 @@ def call_analysis_agent(
         return result
 
     except Exception as e:
-        logger.error(f"AgentCore 호출 실패: {e}")
+        logger.error(f"AgentCore 호출 실패: {type(e).__name__}: {e}", exc_info=True)
         return _mock()
 
 
