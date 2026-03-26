@@ -173,14 +173,17 @@ def get_analysis_result(db: Session, result_id: int, cognito_id: str) -> Dict:
         ref_intake = db.query(models.NutrientReferenceIntake).filter(
             models.NutrientReferenceIntake.nutrient_id == gap.NutrientGap.nutrient_id
         ).first()
+        rda = ref_intake.rda_amount if ref_intake else None
+        current = gap.NutrientGap.current_amount or 0
+        computed_gap = max(0, rda - current) if rda is not None else gap.NutrientGap.gap_amount
         nutrient_gaps.append({
             "nutrient_id": gap.NutrientGap.nutrient_id,
             "name_ko": gap.Nutrient.name_ko,
             "name_en": gap.Nutrient.name_en,
             "unit": gap.Nutrient.unit,
-            "current_amount": gap.NutrientGap.current_amount,
-            "gap_amount": gap.NutrientGap.gap_amount,
-            "max_amount": ref_intake.max_amount if ref_intake else None,
+            "current_amount": current,
+            "gap_amount": computed_gap,
+            "rda_amount": rda,
         })
 
     return {
