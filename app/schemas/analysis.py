@@ -22,7 +22,7 @@ class NutrientGapResponse(BaseModel):
     name_en: Optional[str] = None
     unit: Optional[str] = None
     current_amount: Optional[int] = None
-    max_amount: Optional[int] = None
+    rda_amount: Optional[int] = None
     gap_amount: Optional[int] = None
 
 
