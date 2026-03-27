@@ -152,16 +152,37 @@ def resolve_nutrient_ids(db: Session, gaps: List[Dict]) -> List[Dict]:
     """
     step2.gaps의 nutrient_id가 null인 경우
     name_ko로 nutrients 테이블에서 매핑.
+    1) exact match
+    2) 공백 제거 후 match (비타민 C → 비타민C)
+    3) LIKE 검색 (오메가-3 → %오메가-3%)
     """
     resolved = []
     for gap in gaps:
         if gap.get("nutrient_id") is None:
+            name_ko = gap["name_ko"]
+
+            # 1) exact match
             nutrient = db.query(models.Nutrient).filter(
-                models.Nutrient.name_ko == gap["name_ko"]
+                models.Nutrient.name_ko == name_ko
             ).first()
+
+            # 2) 공백 제거 후 match
             if not nutrient:
-                logger.warning(f"'{gap['name_ko']}' nutrients에서 찾지 못함 — 스킵")
+                normalized = name_ko.replace(" ", "")
+                nutrient = db.query(models.Nutrient).filter(
+                    models.Nutrient.name_ko == normalized
+                ).first()
+
+            # 3) LIKE 검색
+            if not nutrient:
+                nutrient = db.query(models.Nutrient).filter(
+                    models.Nutrient.name_ko.ilike(f"%{name_ko}%")
+                ).first()
+
+            if not nutrient:
+                logger.warning(f"'{name_ko}' nutrients에서 찾지 못함 — 스킵")
                 continue
+
             gap = {**gap, "nutrient_id": nutrient.nutrient_id}
         resolved.append(gap)
     return resolved
