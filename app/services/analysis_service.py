@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
 from typing import List, Dict
 from app.models import analysis as models
-from app.services.agent_service import call_analysis_agent, resolve_nutrient_ids
+from app.services.agent_service import call_analysis_agent, resolve_nutrient_ids, _get_current_supplements
 from app.services.user_client import get_codef_data_internal
 
 import logging
@@ -62,11 +62,14 @@ def start_analysis(
     gaps            = resolve_nutrient_ids(db, step2.get("gaps", []))
     recommendations = step3.get("recommendations", [])
 
+    current_supplements = _get_current_supplements(db, cognito_id)
+
     try:
         s1 = step1.get("summary", {})
         nutrients = step1.get("required_nutrients", [])
         key_concerns = s1.get("key_concerns", [])
         meds = [m.get("name", "") for m in medication_info if m.get("name")]
+        supps = [s.get("product_name", "") for s in current_supplements if s.get("product_name")]
         nutrient_lines = ", ".join(
             f"{n.get('name_ko', '')} {n.get('rda_amount', '')}{n.get('unit', '')}"
             for n in nutrients
@@ -74,6 +77,7 @@ def start_analysis(
         summary_text = (
             f"[섭취 목적] {purpose}\n"
             f"[복용 약물] {', '.join(meds) if meds else '없음'}\n"
+            f"[섭취 중인 영양제] {', '.join(supps) if supps else '없음'}\n"
             f"[전반적 평가] {s1.get('overall_assessment', '')}\n"
             f"[주요 우려사항] {', '.join(key_concerns) if key_concerns else '없음'}\n"
             f"[생활습관] {s1.get('lifestyle_notes', '')}\n"
@@ -188,7 +192,17 @@ def start_chat_analysis(
         previous_analysis=previous_analysis,
     )
 
-    # 5. 결과 그대로 반환 (DB 저장 없음)
+    # 5. step1.summary에 컨텍스트 필드 주입 (calculate의 summary_text와 동일 항목)
+    current_supplements = _get_current_supplements(db, cognito_id)
+    meds = [m.get("name", "") for m in medication_info if m.get("name")]
+    supps = [s.get("product_name", "") for s in current_supplements if s.get("product_name")]
+
+    step1_summary = agent_result.get("step1", {}).get("summary", {})
+    if isinstance(step1_summary, dict):
+        step1_summary["purpose"] = new_purpose or ""
+        step1_summary["medications"] = meds
+        step1_summary["supplements"] = supps
+
     return agent_result
 
 
