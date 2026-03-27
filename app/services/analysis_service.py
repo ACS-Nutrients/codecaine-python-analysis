@@ -143,11 +143,23 @@ def start_chat_analysis(
     if not result:
         raise ValueError(f"result_id={result_id} 분석 결과를 찾을 수 없습니다.")
 
-    gaps = db.query(models.NutrientGap).filter(
+    gaps = db.query(
+        models.NutrientGap,
+        models.Nutrient,
+    ).join(
+        models.Nutrient,
+        models.NutrientGap.nutrient_id == models.Nutrient.nutrient_id,
+    ).filter(
         models.NutrientGap.result_id == result_id
     ).all()
 
-    recs = db.query(models.Recommendation).filter(
+    recs = db.query(
+        models.Recommendation,
+        models.Product,
+    ).join(
+        models.Product,
+        models.Recommendation.product_id == models.Product.product_id,
+    ).filter(
         models.Recommendation.result_id == result_id
     ).order_by(models.Recommendation.rank).all()
 
@@ -155,18 +167,21 @@ def start_chat_analysis(
         "summary": result.summary,
         "gaps": [
             {
-                "nutrient_id":     g.nutrient_id,
-                "current_amount":  g.current_amount,
-                "gap_amount":      g.gap_amount,
-                "unit":            g.unit,
+                "nutrient_id":    g.NutrientGap.nutrient_id,
+                "name_ko":        g.Nutrient.name_ko,
+                "current_amount": g.NutrientGap.current_amount,
+                "gap_amount":     g.NutrientGap.gap_amount,
+                "unit":           g.NutrientGap.unit,
             }
             for g in gaps
         ],
         "recommendations": [
             {
-                "product_id":       r.product_id,
-                "rank":             r.rank,
-                "recommend_serving": r.recommend_serving,
+                "product_id":       r.Recommendation.product_id,
+                "product_name":     r.Product.product_name,
+                "product_brand":    r.Product.product_brand,
+                "rank":             r.Recommendation.rank,
+                "recommend_serving": r.Recommendation.recommend_serving,
             }
             for r in recs
         ],
