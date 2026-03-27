@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
-from app.schemas.analysis import AnalysisCalculateRequest, AnalysisResultResponse
+from app.schemas.analysis import AnalysisCalculateRequest, AnalysisResultResponse, ChatCalculateRequest
 from app.services import analysis_service
 from app.db.database import get_db
 from app.core.auth import get_current_user
@@ -27,13 +27,34 @@ def calculate_analysis(
             db=db,
             cognito_id=cognito_id,
             purpose=purpose_str,
-            token=credentials.credentials,  # JWT → user 서비스 전달용
             health_check_data=request.health_check_data.model_dump() if request.health_check_data else {},
+            prescription_data=[item.model_dump() for item in request.prescription_data] if request.prescription_data else [],
         )
         return {
             "result_id": result_id,
             "message": "분석이 완료되었습니다.",
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/chat-calculate", response_model=dict)
+def chat_calculate_analysis(
+    request: ChatCalculateRequest,
+    db: Session = Depends(get_db),
+):
+    """챗봇 재분석 전용 엔드포인트 — JWT 인증 없음, DB 저장 없이 결과 반환"""
+    try:
+        result = analysis_service.start_chat_analysis(
+            db=db,
+            cognito_id=request.cognito_id,
+            result_id=request.result_id,
+            new_purpose=request.new_purpose,
+            chat_history=request.chat_history,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

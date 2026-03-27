@@ -6,28 +6,11 @@ from sqlalchemy import and_, desc
 from typing import List, Dict
 from app.models import analysis as models
 from app.services.agent_service import call_analysis_agent, resolve_nutrient_ids
-from app.services.user_client import get_codef_data
+from app.services.user_client import get_codef_data_internal
 
 import logging
 logger = logging.getLogger(__name__)
 
-
-def _upsert_intake_purpose(db: Session, cognito_id: str, purpose: str, now: datetime) -> None:
-    """intake_purpose를 analysis_userdata에 저장 (upsert)"""
-    userdata = db.query(models.AnalysisUserData).filter(
-        models.AnalysisUserData.cognito_id == cognito_id
-    ).first()
-    if userdata:
-        userdata.ans_current_conditions = purpose
-        userdata.updated_at = now
-    else:
-        db.add(models.AnalysisUserData(
-            cognito_id=cognito_id,
-            ans_current_conditions=purpose,
-            created_at=now,
-            updated_at=now,
-        ))
-    db.flush()
 
 
 def _get_userdata(db: Session, cognito_id: str) -> Dict:
@@ -52,20 +35,15 @@ def start_analysis(
     db: Session,
     cognito_id: str,
     purpose: str,
-    token: str,
     health_check_data: Dict = None,
+    prescription_data: List[Dict] = None,
 ) -> int:
     now = datetime.now(timezone.utc)
 
-    # user 서비스에서 CODEF 데이터 조회 (JWT 전달)
-    codef = get_codef_data(cognito_id, token)
-    hd = codef.get("codef_health_data") or health_check_data or {}
-    medication_info = codef.get("medication_info") or []
+    hd = health_check_data or {}
+    medication_info = prescription_data or []
 
-    # intake_purpose를 analysis_userdata에 저장
-    _upsert_intake_purpose(db, cognito_id, purpose, now)
-
-    # analysis_userdata 전체 조회 (DMS 동기화 데이터 + intake_purpose 포함)
+    # analysis_userdata 전체 조회 (DMS 동기화 데이터)
     user_profile = _get_userdata(db, cognito_id)
 
     agent_result = call_analysis_agent(
@@ -143,6 +121,76 @@ def start_analysis(
         raise
 
     return result_id
+
+def start_chat_analysis(
+    db: Session,
+    cognito_id: str,
+    result_id: int,
+    new_purpose: str = None,
+    chat_history: List[Dict] = None,
+) -> Dict:
+    # 1. 기존 분석 결과 조회 (previous_analysis 구성)
+    result = db.query(models.AnalysisResult).filter(
+        and_(
+            models.AnalysisResult.result_id == result_id,
+            models.AnalysisResult.cognito_id == cognito_id,
+        )
+    ).first()
+    if not result:
+        raise ValueError(f"result_id={result_id} 분석 결과를 찾을 수 없습니다.")
+
+    gaps = db.query(models.NutrientGap).filter(
+        models.NutrientGap.result_id == result_id
+    ).all()
+
+    recs = db.query(models.Recommendation).filter(
+        models.Recommendation.result_id == result_id
+    ).order_by(models.Recommendation.rank).all()
+
+    previous_analysis = {
+        "summary": result.summary,
+        "gaps": [
+            {
+                "nutrient_id":     g.nutrient_id,
+                "current_amount":  g.current_amount,
+                "gap_amount":      g.gap_amount,
+                "unit":            g.unit,
+            }
+            for g in gaps
+        ],
+        "recommendations": [
+            {
+                "product_id":       r.product_id,
+                "rank":             r.rank,
+                "recommend_serving": r.recommend_serving,
+            }
+            for r in recs
+        ],
+    }
+
+    # 2. CODEF 데이터 조회 (user 서비스 — VPC 내부 호출, JWT 없음)
+    codef = get_codef_data_internal(cognito_id)
+    codef_health_data = codef.get("codef_health_data") or {}
+    medication_info   = codef.get("medication_info") or []
+
+    # 3. user_profile 조회
+    user_profile = _get_userdata(db, cognito_id)
+
+    # 4. AgentCore 호출
+    agent_result = call_analysis_agent(
+        db=db,
+        cognito_id=cognito_id,
+        user_profile=user_profile,
+        codef_health_data=codef_health_data,
+        medication_info=medication_info,
+        new_purpose=new_purpose,
+        chat_history=chat_history,
+        previous_analysis=previous_analysis,
+    )
+
+    # 5. 결과 그대로 반환 (DB 저장 없음)
+    return agent_result
+
 
 def get_analysis_result(db: Session, result_id: int, cognito_id: str) -> Dict:
     """분석 결과 조회"""

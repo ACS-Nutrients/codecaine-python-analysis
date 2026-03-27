@@ -3,17 +3,38 @@ from typing import Optional, Dict, List
 from datetime import datetime
 
 
+class ExamItem(BaseModel):
+    name: str
+    value: str
+    unit: str
+
+
+class PrescriptionItem(BaseModel):
+    name: str
+    dose: str
+    usage: str
+
+
 class HealthCheckData(BaseModel):
     exam_date: Optional[str] = None
     gender: Optional[int] = None
     age: Optional[int] = None
     height: Optional[float] = None
     weight: Optional[float] = None
+    exam_items: Optional[List[ExamItem]] = None
 
 
 class AnalysisCalculateRequest(BaseModel):
     health_check_data: Optional[HealthCheckData] = None
-    purposes: Optional[List[str]] = []
+    prescription_data: Optional[List[PrescriptionItem]] = None
+    purposes: Optional[List[str]] = None
+
+
+class ChatCalculateRequest(BaseModel):
+    cognito_id: str
+    result_id: int
+    new_purpose: Optional[str] = None
+    chat_history: Optional[List[Dict]] = None
 
 
 class NutrientGapResponse(BaseModel):
