@@ -90,10 +90,13 @@ def _get_products(db: Session) -> List[Dict]:
 def call_analysis_agent(
     db: Session,
     cognito_id: str,
-    intake_purpose: str,
+    intake_purpose: str = None,
     user_profile: Optional[Dict] = None,
     codef_health_data: Optional[Dict] = None,
     medication_info: Optional[List[Dict]] = None,
+    new_purpose: Optional[str] = None,
+    chat_history: Optional[List[Dict]] = None,
+    previous_analysis: Optional[Dict] = None,
 ) -> Dict:
     """
     AgentCore Runtime 호출.
@@ -117,6 +120,9 @@ def call_analysis_agent(
     payload = {
         "cognito_id":          cognito_id,
         "intake_purpose":      intake_purpose,
+        "new_purpose":         new_purpose,
+        "chat_history":        chat_history or [],
+        "previous_analysis":   previous_analysis,
         "current_conditions":  (user_profile or {}).get("current_conditions"),
         "user_profile":        user_profile or {},
         "codef_health_data":   codef_health_data or {},
