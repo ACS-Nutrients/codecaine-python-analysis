@@ -250,18 +250,17 @@ def get_analysis_result(db: Session, result_id: int, cognito_id: str) -> Dict:
         ref_intake = db.query(models.NutrientReferenceIntake).filter(
             models.NutrientReferenceIntake.nutrient_id == gap.NutrientGap.nutrient_id
         ).first()
-        rda = ref_intake.rda_amount if ref_intake else None
         current = gap.NutrientGap.current_amount or 0
-        computed_gap = max(0, rda - current) if rda is not None else gap.NutrientGap.gap_amount
-        # rda_amount 없는 영양소(코엔자임Q10, 루테인 등): gap + current = 원래 LLM이 계산한 RDA
-        rda_display = rda if rda is not None else (gap.NutrientGap.gap_amount or 0) + current
+        gap_stored = gap.NutrientGap.gap_amount or 0
+        # LLM이 계산한 개인화된 RDA = 저장된 gap + 현재 섭취량
+        rda_display = gap_stored + current
         nutrient_gaps.append({
             "nutrient_id": gap.NutrientGap.nutrient_id,
             "name_ko": gap.Nutrient.name_ko,
             "name_en": gap.Nutrient.name_en,
             "unit": gap.Nutrient.unit,
             "current_amount": current,
-            "gap_amount": computed_gap,
+            "gap_amount": gap_stored,
             "rda_amount": rda_display,
             "max_amount": ref_intake.max_amount if ref_intake else None,
         })
