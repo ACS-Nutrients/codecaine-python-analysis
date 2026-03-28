@@ -74,6 +74,11 @@ def start_analysis(
             f"{n.get('name_ko', '')} {n.get('rda_amount', '')}{n.get('unit', '')}"
             for n in nutrients
         )
+        reason_lines = "|".join(
+            f"{n.get('name_ko', '')}:{n.get('reason', '')}"
+            for n in nutrients
+            if n.get("reason")
+        )
         summary_text = (
             f"[섭취 목적] {purpose}\n"
             f"[복용 약물] {', '.join(meds) if meds else '없음'}\n"
@@ -81,7 +86,8 @@ def start_analysis(
             f"[전반적 평가] {s1.get('overall_assessment', '')}\n"
             f"[주요 우려사항] {', '.join(key_concerns) if key_concerns else '없음'}\n"
             f"[생활습관] {s1.get('lifestyle_notes', '')}\n"
-            f"[필요 영양소] {nutrient_lines}"
+            f"[필요 영양소] {nutrient_lines}\n"
+            f"[영양소 이유] {reason_lines}"
         )
 
         result = models.AnalysisResult(
