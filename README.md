@@ -39,6 +39,27 @@ cp .env.example .env
 uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
+### 로컬 — RDS 접속 (Bastion SSM 포트 포워딩)
+
+프로덕션 RDS는 VPC 내부에 있어 직접 접속 불가. Bastion EC2를 통해 포트 포워딩 후 연결.
+
+```bash
+# 1. SSM 포트 포워딩 (백그라운드 실행)
+aws ssm start-session \
+  --target i-0e9937c6ce9056ea3 \
+  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+  --parameters '{"host":["cdci-prd-analysis.c9you6w8souo.ap-northeast-2.rds.amazonaws.com"],"portNumber":["5432"],"localPortNumber":["15432"]}' &
+
+# 2. .env 설정 (DB 비밀번호는 AWS Secrets Manager > cdci-prd-analysis-db-secret 참고)
+DATABASE_URL=postgresql://vitamin_analysis:<password>@127.0.0.1:15432/vitamin_analysis?sslmode=require
+
+# 3. 서버 시작
+uvicorn app.main:app --port 8001 --reload
+```
+
+> DB 비밀번호에 `:`, `?`, `!` 등 특수문자가 포함된 경우 DATABASE_URL에 그대로 입력.
+> pgpass 파일 사용 시 콜론(`:`)은 `\:`로 이스케이프 필요.
+
 ### ECS
 
 ECS Task Definition의 `environment` 또는 AWS Secrets Manager를 통해 아래 환경변수를 주입한다.
@@ -124,11 +145,12 @@ app/
 
 ### 분석
 
-| 메서드 | 경로 | 설명 |
-|--------|------|------|
-| `POST` | `/api/analysis/calculate` | 영양 분석 실행 |
-| `GET` | `/api/analysis/result/{result_id}` | 분석 결과 조회 |
-| `GET` | `/api/recommendations/{result_id}` | 추천 영양제 목록 조회 |
+| 메서드 | 경로 | 인증 | 설명 |
+|--------|------|------|------|
+| `POST` | `/api/analysis/calculate` | JWT 필요 | 영양 분석 실행 (결과 DB 저장) |
+| `POST` | `/api/analysis/chat-calculate` | 없음 (VPC 내부) | 챗봇 재분석 (결과 반환만, DB 저장 없음) |
+| `GET` | `/api/analysis/result/{result_id}` | JWT 필요 | 분석 결과 조회 |
+| `GET` | `/api/recommendations/{result_id}` | JWT 필요 | 추천 영양제 목록 조회 |
 
 ### CODEF 건강검진
 
@@ -213,6 +235,60 @@ app/
 { "result_id": 123, "message": "분석이 완료되었습니다." }
 ```
 
+#### `POST /api/analysis/chat-calculate`
+
+챗봇이 내부적으로 호출하는 재분석 엔드포인트. JWT 인증 없음 (VPC 내부 전용).
+이전 분석 결과(`result_id`)를 참고해 새 목적으로 재분석. 결과는 DB에 저장하지 않고 바로 반환.
+
+```json
+// Request
+{
+  "cognito_id": "string",
+  "result_id": 33,
+  "new_purpose": "피로 회복",
+  "chat_history": [
+    { "role": "user", "content": "요즘 피로가 너무 심해요" },
+    { "role": "assistant", "content": "피로 회복에 맞춰 재분석해드리겠습니다" }
+  ]
+}
+
+// Response — step1/step2/step3 전체 반환 (calculate와 동일한 분석 구조)
+{
+  "cognito_id": "string",
+  "step1": {
+    "required_nutrients": [
+      { "name_ko": "비타민 B12", "name_en": "Vitamin B12", "rda_amount": "2.4", "unit": "mcg", "reason": "..." }
+    ],
+    "summary": {
+      "overall_assessment": "...",
+      "key_concerns": ["..."],
+      "lifestyle_notes": "...",
+      "purpose": "피로 회복",
+      "medications": [],
+      "supplements": []
+    }
+  },
+  "step2": {
+    "gaps": [
+      { "nutrient_id": 1, "name_ko": "비타민 B12", "current_amount": "0", "gap_amount": "2.4", "unit": "mcg" }
+    ]
+  },
+  "step3": {
+    "recommendations": [
+      { "rank": 1, "product_id": 12, "product_name": "...", "product_brand": "...", "recommend_serving": 1, "covered_nutrients": ["비타민 B12"] }
+    ]
+  }
+}
+```
+
+| 항목 | `/calculate` | `/chat-calculate` |
+|---|---|---|
+| 인증 | JWT 필요 | 없음 (VPC 내부) |
+| 입력 목적 | `purposes` 배열 | `new_purpose` 문자열 + `chat_history` |
+| 이전 분석 참조 | 없음 | `result_id`로 DB 조회 |
+| DB 저장 | 저장 | 저장 안 함 |
+| 응답 | `result_id` | step1/step2/step3 전체 |
+
 ---
 
 ## 분석 로직
@@ -236,7 +312,7 @@ app/
 5. 결과 저장 (analysis_result, nutrient_gap, recommendations 테이블)
 ```
 
-> **현재 상태**: Bedrock Agent 연동은 placeholder 상태. `agent_service.py`가 mock 응답을 반환함.
+> AgentCore Runtime ARN이 설정되지 않으면 `agent_service.py`가 mock 응답을 반환함. `AGENTCORE_RUNTIME_ARN` 환경변수 또는 `config.py` 기본값으로 실제 ARN 설정 필요.
 
 ---
 
