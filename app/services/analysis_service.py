@@ -296,6 +296,7 @@ def get_recommendations(db: Session, result_id: int, cognito_id: str) -> List[Di
     for rec, product in recs:
         nutrients = db.query(
             models.Nutrient.name_ko,
+            models.Nutrient.unit,
             models.ProductNutrient.amount_per_day
         ).join(
             models.ProductNutrient,
@@ -312,7 +313,7 @@ def get_recommendations(db: Session, result_id: int, cognito_id: str) -> List[Di
             "serving_per_day": product.serving_per_day,
             "recommend_serving": rec.recommend_serving,
             "rank": rec.rank,
-            "nutrients": {n.name_ko: n.amount_per_day for n in nutrients}
+            "nutrients": {n.name_ko: f"{n.amount_per_day}{n.unit or ''}" for n in nutrients}
         })
 
     return result
