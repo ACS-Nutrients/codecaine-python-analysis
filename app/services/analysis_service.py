@@ -74,6 +74,11 @@ def start_analysis(
             f"{n.get('name_ko', '')} {n.get('rda_amount', '')}{n.get('unit', '')}"
             for n in nutrients
         )
+        reason_lines = "|".join(
+            f"{n.get('name_ko', '')}:{n.get('reason', '')}"
+            for n in nutrients
+            if n.get("reason")
+        )
         summary_text = (
             f"[섭취 목적] {purpose}\n"
             f"[복용 약물] {', '.join(meds) if meds else '없음'}\n"
@@ -81,7 +86,8 @@ def start_analysis(
             f"[전반적 평가] {s1.get('overall_assessment', '')}\n"
             f"[주요 우려사항] {', '.join(key_concerns) if key_concerns else '없음'}\n"
             f"[생활습관] {s1.get('lifestyle_notes', '')}\n"
-            f"[필요 영양소] {nutrient_lines}"
+            f"[필요 영양소] {nutrient_lines}\n"
+            f"[영양소 이유] {reason_lines}"
         )
 
         result = models.AnalysisResult(
@@ -131,7 +137,7 @@ def start_chat_analysis(
     cognito_id: str,
     result_id: int,
     new_purpose: str = None,
-    chat_history: List[Dict] = None,
+    chat_history: str = None,
 ) -> Dict:
     # 1. 기존 분석 결과 조회 (previous_analysis 구성)
     result = db.query(models.AnalysisResult).filter(
@@ -196,6 +202,13 @@ def start_chat_analysis(
     user_profile = _get_userdata(db, cognito_id)
 
     # 4. AgentCore 호출
+    parsed_chat_history: List[Dict] = []
+    if chat_history:
+        try:
+            parsed_chat_history = json.loads(chat_history)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning("chat_history 파싱 실패 — 빈 리스트로 대체")
+
     agent_result = call_analysis_agent(
         db=db,
         cognito_id=cognito_id,
@@ -203,7 +216,7 @@ def start_chat_analysis(
         codef_health_data=codef_health_data,
         medication_info=medication_info,
         new_purpose=new_purpose,
-        chat_history=chat_history,
+        chat_history=parsed_chat_history,
         previous_analysis=previous_analysis,
     )
 
@@ -250,17 +263,19 @@ def get_analysis_result(db: Session, result_id: int, cognito_id: str) -> Dict:
         ref_intake = db.query(models.NutrientReferenceIntake).filter(
             models.NutrientReferenceIntake.nutrient_id == gap.NutrientGap.nutrient_id
         ).first()
-        rda = ref_intake.rda_amount if ref_intake else None
         current = gap.NutrientGap.current_amount or 0
-        computed_gap = max(0, rda - current) if rda is not None else gap.NutrientGap.gap_amount
+        gap_stored = gap.NutrientGap.gap_amount or 0
+        # LLM이 계산한 개인화된 RDA = 저장된 gap + 현재 섭취량
+        rda_display = gap_stored + current
         nutrient_gaps.append({
             "nutrient_id": gap.NutrientGap.nutrient_id,
             "name_ko": gap.Nutrient.name_ko,
             "name_en": gap.Nutrient.name_en,
             "unit": gap.Nutrient.unit,
             "current_amount": current,
-            "gap_amount": computed_gap,
-            "rda_amount": rda,
+            "gap_amount": gap_stored,
+            "rda_amount": rda_display,
+            "max_amount": ref_intake.max_amount if ref_intake else None,
         })
 
     return {
@@ -288,6 +303,7 @@ def get_recommendations(db: Session, result_id: int, cognito_id: str) -> List[Di
     for rec, product in recs:
         nutrients = db.query(
             models.Nutrient.name_ko,
+            models.Nutrient.unit,
             models.ProductNutrient.amount_per_day
         ).join(
             models.ProductNutrient,
@@ -304,7 +320,7 @@ def get_recommendations(db: Session, result_id: int, cognito_id: str) -> List[Di
             "serving_per_day": product.serving_per_day,
             "recommend_serving": rec.recommend_serving,
             "rank": rec.rank,
-            "nutrients": {n.name_ko: n.amount_per_day for n in nutrients}
+            "nutrients": {n.name_ko: f"{n.amount_per_day}{n.unit or ''}" for n in nutrients}
         })
 
     return result

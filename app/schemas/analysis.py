@@ -33,8 +33,8 @@ class AnalysisCalculateRequest(BaseModel):
 class ChatCalculateRequest(BaseModel):
     cognito_id: str
     result_id: int
-    new_purpose: Optional[str] = None
-    chat_history: Optional[List[Dict]] = None
+    current_conditions: Optional[str] = None
+    chat_history: Optional[str] = None
 
 
 class NutrientGapResponse(BaseModel):

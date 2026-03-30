@@ -54,10 +54,33 @@ def _get_unit_cache(db: Session) -> Dict:
 
 
 def _get_products(db: Session) -> List[Dict]:
-    """products + product_nutrients JOIN 조회 → Step3 추천용"""
-    products = db.query(models.Product).all()
+    """products + product_nutrients JOIN 조회 → Step3 추천용.
+
+    AgentCore invoke 페이로드 한도(~256KB)를 초과하지 않도록
+    영양소 보유 수 기준 상위 200개 제품만 반환한다.
+    """
+    from sqlalchemy import func
+
+    nutrient_count_subq = (
+        db.query(
+            models.ProductNutrient.product_id,
+            func.count(models.ProductNutrient.nutrient_id).label("nutrient_count"),
+        )
+        .filter(models.ProductNutrient.amount_per_day > 0)
+        .group_by(models.ProductNutrient.product_id)
+        .subquery()
+    )
+
+    top_products = (
+        db.query(models.Product)
+        .join(nutrient_count_subq, models.Product.product_id == nutrient_count_subq.c.product_id)
+        .order_by(nutrient_count_subq.c.nutrient_count.desc())
+        .limit(200)
+        .all()
+    )
+
     result = []
-    for p in products:
+    for p in top_products:
         nutrients = db.query(
             models.Nutrient.name_ko,
             models.Nutrient.name_en,
