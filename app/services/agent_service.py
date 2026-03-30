@@ -53,13 +53,18 @@ def _get_unit_cache(db: Session) -> Dict:
     return {row.vitamin_name: str(row.convert_unit) for row in rows}
 
 
-def _get_products(db: Session) -> List[Dict]:
+def _get_products(db: Session, gender: int = None) -> List[Dict]:
     """products + product_nutrients JOIN 조회 → Step3 추천용.
 
     AgentCore invoke 페이로드 한도(~256KB)를 초과하지 않도록
     영양소 보유 수 기준 상위 200개 제품만 반환한다.
+    gender: 1=남성, 0=여성. 반대 성별 전용 제품 제외.
     """
     from sqlalchemy import func
+
+    # 반대 성별 전용 제품을 제외할 키워드
+    MALE_KEYWORDS   = ["남성", "남성용", "Men's", "Men ", "men's", "ADAM", " Men,"]
+    FEMALE_KEYWORDS = ["여성", "여성용", "Women's", "Women ", "women's", "Prenatal", "prenatal"]
 
     nutrient_count_subq = (
         db.query(
@@ -75,9 +80,23 @@ def _get_products(db: Session) -> List[Dict]:
         db.query(models.Product)
         .join(nutrient_count_subq, models.Product.product_id == nutrient_count_subq.c.product_id)
         .order_by(nutrient_count_subq.c.nutrient_count.desc())
-        .limit(200)
+        .limit(300)  # gender 필터 후 줄어들 수 있으므로 여유 있게 조회
         .all()
     )
+
+    # gender 필터: 반대 성별 전용 제품 제외
+    if gender == 1:  # 남성 → 여성 전용 제품 제외
+        top_products = [
+            p for p in top_products
+            if not any(kw in (p.product_name or "") for kw in FEMALE_KEYWORDS)
+        ]
+    elif gender == 0:  # 여성 → 남성 전용 제품 제외
+        top_products = [
+            p for p in top_products
+            if not any(kw in (p.product_name or "") for kw in MALE_KEYWORDS)
+        ]
+
+    top_products = top_products[:200]
 
     result = []
     for p in top_products:
@@ -138,7 +157,8 @@ def call_analysis_agent(
 
     current_supplements = _get_current_supplements(db, cognito_id)
     unit_cache          = _get_unit_cache(db)
-    products            = _get_products(db)
+    gender              = (user_profile or {}).get("gender")
+    products            = _get_products(db, gender=gender)
 
     payload = {
         "cognito_id":          cognito_id,
