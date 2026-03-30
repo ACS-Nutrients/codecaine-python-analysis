@@ -46,6 +46,15 @@ def start_analysis(
     # analysis_userdata 전체 조회 (DMS 동기화 데이터)
     user_profile = _get_userdata(db, cognito_id)
 
+    # gender fallback: analysis_userdata가 NULL이면 health_check_data에서 보완
+    # frontend 인코딩: 1=남성, 2=여성 → 내부 인코딩: 0=남성, 1=여성
+    if user_profile.get("gender") is None and hd.get("gender"):
+        hd_gender_raw = int(hd["gender"])
+        if hd_gender_raw == 1:
+            user_profile["gender"] = 0  # 남성
+        elif hd_gender_raw == 2:
+            user_profile["gender"] = 1  # 여성
+
     agent_result = call_analysis_agent(
         db=db,
         cognito_id=cognito_id,
