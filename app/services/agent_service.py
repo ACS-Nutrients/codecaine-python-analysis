@@ -62,9 +62,10 @@ def _get_products(db: Session, gender: int = None) -> List[Dict]:
     """
     from sqlalchemy import func
 
-    # 반대 성별 전용 제품을 제외할 키워드
-    MALE_KEYWORDS   = ["남성", "남성용", "Men's", "Men ", "men's", "ADAM", " Men,"]
-    FEMALE_KEYWORDS = ["여성", "여성용", "Women's", "Women ", "women's", "Prenatal", "prenatal"]
+    # 반대 성별 전용 제품을 제외할 키워드 (소문자 기준 — 비교 시 product_name.lower() 사용)
+    # gender 인코딩: 0=남성, 1=여성 (analysis_userdata.ans_gender 기준)
+    MALE_KEYWORDS   = ["남성", "남성용", "men's", "men ", "adam", " men,"]
+    FEMALE_KEYWORDS = ["여성", "여성용", "women's", "women", "prenatal"]
 
     nutrient_count_subq = (
         db.query(
@@ -84,16 +85,16 @@ def _get_products(db: Session, gender: int = None) -> List[Dict]:
         .all()
     )
 
-    # gender 필터: 반대 성별 전용 제품 제외
-    if gender == 1:  # 남성 → 여성 전용 제품 제외
+    # gender 필터: 반대 성별 전용 제품 제외 (대소문자 무시)
+    if gender == 0:  # 남성 → 여성 전용 제품 제외
         top_products = [
             p for p in top_products
-            if not any(kw in (p.product_name or "") for kw in FEMALE_KEYWORDS)
+            if not any(kw in (p.product_name or "").lower() for kw in FEMALE_KEYWORDS)
         ]
-    elif gender == 0:  # 여성 → 남성 전용 제품 제외
+    elif gender == 1:  # 여성 → 남성 전용 제품 제외
         top_products = [
             p for p in top_products
-            if not any(kw in (p.product_name or "") for kw in MALE_KEYWORDS)
+            if not any(kw in (p.product_name or "").lower() for kw in MALE_KEYWORDS)
         ]
 
     top_products = top_products[:200]
