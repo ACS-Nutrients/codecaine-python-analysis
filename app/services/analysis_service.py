@@ -79,13 +79,17 @@ def start_analysis(
             for n in nutrients
             if n.get("reason")
         )
+        lifestyle_notes = s1.get('lifestyle_notes', '')
+        if isinstance(lifestyle_notes, dict):
+            lifestyle_notes = json.dumps(lifestyle_notes, ensure_ascii=False)
+
         summary_text = (
             f"[섭취 목적] {purpose}\n"
             f"[복용 약물] {', '.join(meds) if meds else '없음'}\n"
             f"[섭취 중인 영양제] {', '.join(supps) if supps else '없음'}\n"
             f"[전반적 평가] {s1.get('overall_assessment', '')}\n"
             f"[주요 우려사항] {', '.join(key_concerns) if key_concerns else '없음'}\n"
-            f"[생활습관] {s1.get('lifestyle_notes', '')}\n"
+            f"[생활습관] {lifestyle_notes}\n"
             f"[필요 영양소] {nutrient_lines}\n"
             f"[영양소 이유] {reason_lines}"
         )
