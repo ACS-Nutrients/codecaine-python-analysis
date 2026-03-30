@@ -49,7 +49,7 @@ def chat_calculate_analysis(
             db=db,
             cognito_id=request.cognito_id,
             result_id=request.result_id,
-            new_purpose=request.new_purpose,
+            new_purpose=request.current_conditions,
             chat_history=request.chat_history,
         )
         return result

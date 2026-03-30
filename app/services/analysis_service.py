@@ -137,7 +137,7 @@ def start_chat_analysis(
     cognito_id: str,
     result_id: int,
     new_purpose: str = None,
-    chat_history: List[Dict] = None,
+    chat_history: str = None,
 ) -> Dict:
     # 1. 기존 분석 결과 조회 (previous_analysis 구성)
     result = db.query(models.AnalysisResult).filter(
@@ -202,6 +202,13 @@ def start_chat_analysis(
     user_profile = _get_userdata(db, cognito_id)
 
     # 4. AgentCore 호출
+    parsed_chat_history: List[Dict] = []
+    if chat_history:
+        try:
+            parsed_chat_history = json.loads(chat_history)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning("chat_history 파싱 실패 — 빈 리스트로 대체")
+
     agent_result = call_analysis_agent(
         db=db,
         cognito_id=cognito_id,
@@ -209,7 +216,7 @@ def start_chat_analysis(
         codef_health_data=codef_health_data,
         medication_info=medication_info,
         new_purpose=new_purpose,
-        chat_history=chat_history,
+        chat_history=parsed_chat_history,
         previous_analysis=previous_analysis,
     )
 
