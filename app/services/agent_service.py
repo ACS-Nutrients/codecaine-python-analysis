@@ -17,7 +17,15 @@ logger = logging.getLogger(__name__)
 
 
 def _agentcore_client():
-    kwargs = {"region_name": settings.aws_region}
+    from botocore.config import Config
+    
+    kwargs = {
+        "region_name": settings.aws_region,
+        "config": Config(
+            read_timeout=300,  # 5분 (기본 60초)
+            connect_timeout=10
+        )
+    }
     if settings.aws_access_key_id and settings.aws_secret_access_key:
         kwargs["aws_access_key_id"] = settings.aws_access_key_id
         kwargs["aws_secret_access_key"] = settings.aws_secret_access_key
