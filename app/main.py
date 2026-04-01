@@ -4,13 +4,9 @@ logging.basicConfig(level=logging.INFO)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from app.api.router import api_router
-from app.core.telemetry import setup_telemetry
 from app.db.database import get_engine
 from sqlalchemy import text
-
-setup_telemetry()
 
 app = FastAPI(title="Analysis Service API", version="1.0.0")
 
@@ -26,7 +22,6 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
-FastAPIInstrumentor.instrument_app(app)
 
 
 @app.get("/health")
