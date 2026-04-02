@@ -14,4 +14,4 @@ ENV OTEL_EXPORTER_OTLP_PROTOCOL=grpc
 
 EXPOSE 8000
 
-CMD ["opentelemetry-instrument", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info", "--timeout-graceful-shutdown", "30"]
+CMD ["/bin/sh", "-c", "opentelemetry-instrument uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --log-level info --timeout-graceful-shutdown 30"]
