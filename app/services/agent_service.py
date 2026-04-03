@@ -5,6 +5,8 @@ AgentCore Runtime 호출 서비스.
 
 import json
 import logging
+import time
+import uuid
 from typing import Dict, List, Optional
 
 import boto3
@@ -24,6 +26,48 @@ def _get_xray_trace_header() -> str:
         return f"Root=1-{trace_hex[:8]}-{trace_hex[8:]};Parent={span_hex};Sampled={sampled}"
     except Exception:
         return ""
+
+
+_xray_client = None
+
+
+def _get_xray_client():
+    global _xray_client
+    if _xray_client is None:
+        from app.core.config import settings
+        _xray_client = boto3.client("xray", region_name=settings.aws_region)
+    return _xray_client
+
+
+def _send_xray_segment(start_time: float, end_time: float, success: bool) -> None:
+    """
+    ECS cdci-prd-analysis → AgentCore cdci-prd-analysis-agent 호출을 X-Ray에 직접 기록.
+    OTEL sidecar가 장기 요청 span을 누락하는 문제를 보완한다.
+    """
+    try:
+        trace_id = f"1-{int(start_time):08x}-{uuid.uuid4().hex[:24]}"
+        segment = {
+            "id": uuid.uuid4().hex[:16],
+            "name": "cdci-prd-analysis",
+            "trace_id": trace_id,
+            "start_time": start_time,
+            "end_time": end_time,
+            "fault": not success,
+            "aws": {"xray.origin": "AWS::ECS::Fargate"},
+            "subsegments": [{
+                "id": uuid.uuid4().hex[:16],
+                "name": "cdci-prd-analysis-agent",
+                "start_time": start_time,
+                "end_time": end_time,
+                "namespace": "remote",
+                "fault": not success,
+            }],
+        }
+        _get_xray_client().put_trace_segments(
+            TraceSegmentDocuments=[json.dumps(segment)]
+        )
+    except Exception as exc:
+        logging.getLogger(__name__).warning("X-Ray segment send failed: %s", exc)
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -202,6 +246,7 @@ def call_analysis_agent(
     }
     logger.info(f"[{cognito_id}] _xray_trace header: '{payload['_xray_trace']}'")
 
+    call_start = time.time()
     try:
         client = _agentcore_client()
         response = client.invoke_agent_runtime(
@@ -211,10 +256,12 @@ def call_analysis_agent(
         raw = response["response"].read()
         result = json.loads(raw)
         logger.info(f"[{cognito_id}] AgentCore 호출 성공")
+        _send_xray_segment(call_start, time.time(), success=True)
         return result
 
     except Exception as e:
         logger.error(f"AgentCore 호출 실패: {type(e).__name__}: {e}", exc_info=True)
+        _send_xray_segment(call_start, time.time(), success=False)
         return _mock()
 
 
