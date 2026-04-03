@@ -8,6 +8,22 @@ import logging
 from typing import Dict, List, Optional
 
 import boto3
+
+
+def _get_xray_trace_header() -> str:
+    """현재 OTEL span의 trace context를 X-Amzn-Trace-Id 형식으로 반환."""
+    try:
+        from opentelemetry import trace as otel_trace
+        span = otel_trace.get_current_span()
+        ctx = span.get_span_context()
+        if not ctx.is_valid:
+            return ""
+        trace_hex = format(ctx.trace_id, '032x')
+        span_hex = format(ctx.span_id, '016x')
+        sampled = "1" if ctx.trace_flags.sampled else "0"
+        return f"Root=1-{trace_hex[:8]}-{trace_hex[8:]};Parent={span_hex};Sampled={sampled}"
+    except Exception:
+        return ""
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -182,6 +198,7 @@ def call_analysis_agent(
         "current_supplements": current_supplements,
         "unit_cache":          unit_cache,
         "products":            products,
+        "_xray_trace":         _get_xray_trace_header(),
     }
 
     try:
