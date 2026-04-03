@@ -42,7 +42,8 @@ jobs:
         run: |
           aws ecs describe-task-definition \
             --task-definition cdci-prd-${{ env.SERVICE_NAME }} \
-            --query taskDefinition > task-definition.json
+            --query taskDefinition \
+          | jq 'del(.enableFaultInjection)' > task-definition.json
 
       - name: Update task definition with new image
         id: task-def
