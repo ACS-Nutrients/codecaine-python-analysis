@@ -200,6 +200,7 @@ def call_analysis_agent(
         "products":            products,
         "_xray_trace":         _get_xray_trace_header(),
     }
+    logger.info(f"[{cognito_id}] _xray_trace header: '{payload['_xray_trace']}'")
 
     try:
         client = _agentcore_client()
