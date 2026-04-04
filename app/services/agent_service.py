@@ -242,34 +242,56 @@ def call_analysis_agent(
     }
     logger.info(f"[{cognito_id}] _xray_trace header: '{payload['_xray_trace']}'")
 
-    from opentelemetry import trace as otel_trace
-    tracer = otel_trace.get_tracer(__name__)
-
     call_start = time.time()
-    with tracer.start_as_current_span(
-        "cdci-prd-analysis-agent",
-        kind=otel_trace.SpanKind.CLIENT,
-    ) as span:
-        span.set_attribute("peer.service", "cdci-prd-analysis-agent")
-        span.set_attribute("rpc.system", "aws-api")
-        span.set_attribute("rpc.service", "bedrock-agentcore")
-        try:
-            client = _agentcore_client()
-            response = client.invoke_agent_runtime(
-                agentRuntimeArn=settings.agentcore_runtime_arn,
-                payload=json.dumps(payload, ensure_ascii=False),
-            )
-            raw = response["response"].read()
-            result = json.loads(raw)
-            logger.info(f"[{cognito_id}] AgentCore 호출 성공")
-            _send_xray_segment(call_start, time.time(), success=True)
-            return result
+    success = False
+    try:
+        client = _agentcore_client()
+        response = client.invoke_agent_runtime(
+            agentRuntimeArn=settings.agentcore_runtime_arn,
+            payload=json.dumps(payload, ensure_ascii=False),
+        )
+        raw = response["response"].read()
+        result = json.loads(raw)
+        logger.info(f"[{cognito_id}] AgentCore 호출 성공")
+        success = True
+        return result
 
-        except Exception as e:
-            span.record_exception(e)
-            logger.error(f"AgentCore 호출 실패: {type(e).__name__}: {e}", exc_info=True)
-            _send_xray_segment(call_start, time.time(), success=False)
-            return _mock()
+    except Exception as e:
+        logger.error(f"AgentCore 호출 실패: {type(e).__name__}: {e}", exc_info=True)
+        return _mock()
+
+    finally:
+        call_end = time.time()
+        _send_xray_segment(call_start, call_end, success=success)
+        # AgentCore 호출 span을 호출 완료 후 즉시 생성 → 짧은 span으로 BatchSpanProcessor가 바로 export
+        try:
+            from opentelemetry import trace as otel_trace
+            from opentelemetry.context import Context
+            tracer = otel_trace.get_tracer(__name__)
+            root = tracer.start_span(
+                "cdci-prd-analysis",
+                context=Context(),
+                kind=otel_trace.SpanKind.SERVER,
+                start_time=int(call_start * 1e9),
+                attributes={"http.method": "POST", "http.route": "/api/analysis/calculate"},
+            )
+            root_ctx = otel_trace.set_span_in_context(root)
+            child = tracer.start_span(
+                "cdci-prd-analysis-agent",
+                context=root_ctx,
+                kind=otel_trace.SpanKind.CLIENT,
+                start_time=int(call_start * 1e9),
+                attributes={
+                    "peer.service": "cdci-prd-analysis-agent",
+                    "rpc.system":   "aws-api",
+                    "rpc.service":  "bedrock-agentcore",
+                    "error":        not success,
+                },
+            )
+            child.end(end_time=int(call_end * 1e9))
+            root.end(end_time=int(call_end * 1e9))
+        except Exception as otel_err:
+            logger.debug("OTEL span 생성 실패: %s", otel_err)
 
 
 def resolve_nutrient_ids(db: Session, gaps: List[Dict]) -> List[Dict]:
