@@ -28,22 +28,13 @@ def _get_xray_trace_header() -> str:
         return ""
 
 
-_xray_client = None
-
-
-def _get_xray_client():
-    global _xray_client
-    if _xray_client is None:
-        from app.core.config import settings
-        _xray_client = boto3.client("xray", region_name=settings.aws_region)
-    return _xray_client
-
-
 def _send_xray_segment(start_time: float, end_time: float, success: bool) -> None:
     """
-    ECS cdci-prd-analysis → AgentCore cdci-prd-analysis-agent 호출을 X-Ray에 직접 기록.
-    OTEL sidecar가 장기 요청 span을 누락하는 문제를 보완한다.
+    ECS cdci-prd-analysis → AgentCore cdci-prd-analysis-agent 호출을 X-Ray에 기록.
+    OTEL sidecar의 awsxrayreceiver(UDP 2000)를 통해 전송 → OTEL sidecar가 X-Ray API로 forwarding.
+    boto3 put_trace_segments 직접 호출은 이 환경에서 인덱싱 불가 문제가 있어 UDP 사용.
     """
+    import socket
     try:
         trace_id = f"1-{int(start_time):08x}-{uuid.uuid4().hex[:24]}"
         segment = {
@@ -53,7 +44,7 @@ def _send_xray_segment(start_time: float, end_time: float, success: bool) -> Non
             "start_time": start_time,
             "end_time": end_time,
             "fault": not success,
-            "aws": {"xray.origin": "AWS::ECS::Fargate"},
+            "origin": "AWS::ECS::Fargate",
             "subsegments": [{
                 "id": uuid.uuid4().hex[:16],
                 "name": "cdci-prd-analysis-agent",
@@ -63,11 +54,15 @@ def _send_xray_segment(start_time: float, end_time: float, success: bool) -> Non
                 "fault": not success,
             }],
         }
-        _get_xray_client().put_trace_segments(
-            TraceSegmentDocuments=[json.dumps(segment)]
-        )
+        doc = json.dumps(segment).encode("utf-8")
+        # OTEL sidecar's awsxrayreceiver listens on UDP 2000
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            sock.sendto(doc, ("127.0.0.1", 2000))
+        finally:
+            sock.close()
     except Exception as exc:
-        logging.getLogger(__name__).warning("X-Ray segment send failed: %s", exc)
+        logging.getLogger(__name__).warning("X-Ray UDP send failed: %s", exc)
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
