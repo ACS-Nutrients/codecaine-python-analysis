@@ -242,23 +242,34 @@ def call_analysis_agent(
     }
     logger.info(f"[{cognito_id}] _xray_trace header: '{payload['_xray_trace']}'")
 
-    call_start = time.time()
-    try:
-        client = _agentcore_client()
-        response = client.invoke_agent_runtime(
-            agentRuntimeArn=settings.agentcore_runtime_arn,
-            payload=json.dumps(payload, ensure_ascii=False),
-        )
-        raw = response["response"].read()
-        result = json.loads(raw)
-        logger.info(f"[{cognito_id}] AgentCore 호출 성공")
-        _send_xray_segment(call_start, time.time(), success=True)
-        return result
+    from opentelemetry import trace as otel_trace
+    tracer = otel_trace.get_tracer(__name__)
 
-    except Exception as e:
-        logger.error(f"AgentCore 호출 실패: {type(e).__name__}: {e}", exc_info=True)
-        _send_xray_segment(call_start, time.time(), success=False)
-        return _mock()
+    call_start = time.time()
+    with tracer.start_as_current_span(
+        "cdci-prd-analysis-agent",
+        kind=otel_trace.SpanKind.CLIENT,
+    ) as span:
+        span.set_attribute("peer.service", "cdci-prd-analysis-agent")
+        span.set_attribute("rpc.system", "aws-api")
+        span.set_attribute("rpc.service", "bedrock-agentcore")
+        try:
+            client = _agentcore_client()
+            response = client.invoke_agent_runtime(
+                agentRuntimeArn=settings.agentcore_runtime_arn,
+                payload=json.dumps(payload, ensure_ascii=False),
+            )
+            raw = response["response"].read()
+            result = json.loads(raw)
+            logger.info(f"[{cognito_id}] AgentCore 호출 성공")
+            _send_xray_segment(call_start, time.time(), success=True)
+            return result
+
+        except Exception as e:
+            span.record_exception(e)
+            logger.error(f"AgentCore 호출 실패: {type(e).__name__}: {e}", exc_info=True)
+            _send_xray_segment(call_start, time.time(), success=False)
+            return _mock()
 
 
 def resolve_nutrient_ids(db: Session, gaps: List[Dict]) -> List[Dict]:
