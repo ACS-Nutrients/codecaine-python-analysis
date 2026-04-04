@@ -6,7 +6,6 @@ AgentCore Runtime 호출 서비스.
 import json
 import logging
 import time
-import uuid
 from typing import Dict, List, Optional
 
 import boto3
@@ -26,44 +25,6 @@ def _get_xray_trace_header() -> str:
         return f"Root=1-{trace_hex[:8]}-{trace_hex[8:]};Parent={span_hex};Sampled={sampled}"
     except Exception:
         return ""
-
-
-def _send_xray_segment(start_time: float, end_time: float, success: bool) -> None:
-    """
-    ECS cdci-prd-analysis → AgentCore cdci-prd-analysis-agent 호출을 X-Ray에 기록.
-    OTEL sidecar의 awsxrayreceiver(UDP 2000)를 통해 전송 → OTEL sidecar가 X-Ray API로 forwarding.
-    boto3 put_trace_segments 직접 호출은 이 환경에서 인덱싱 불가 문제가 있어 UDP 사용.
-    """
-    import socket
-    try:
-        trace_id = f"1-{int(start_time):08x}-{uuid.uuid4().hex[:24]}"
-        segment = {
-            "id": uuid.uuid4().hex[:16],
-            "name": "cdci-prd-analysis",
-            "trace_id": trace_id,
-            "start_time": start_time,
-            "end_time": end_time,
-            "fault": not success,
-            "origin": "AWS::ECS::Fargate",
-            "subsegments": [{
-                "id": uuid.uuid4().hex[:16],
-                "name": "cdci-prd-analysis-agent",
-                "start_time": start_time,
-                "end_time": end_time,
-                "namespace": "remote",
-                "fault": not success,
-            }],
-        }
-        header = b'{"format": "json", "version": 1}\n'
-        doc = header + json.dumps(segment).encode("utf-8")
-        # OTEL sidecar's awsxrayreceiver listens on UDP 2000
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            sock.sendto(doc, ("127.0.0.1", 2000))
-        finally:
-            sock.close()
-    except Exception as exc:
-        logging.getLogger(__name__).warning("X-Ray UDP send failed: %s", exc)
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -242,8 +203,6 @@ def call_analysis_agent(
     }
     logger.info(f"[{cognito_id}] _xray_trace header: '{payload['_xray_trace']}'")
 
-    call_start = time.time()
-    success = False
     try:
         client = _agentcore_client()
         response = client.invoke_agent_runtime(
@@ -253,45 +212,11 @@ def call_analysis_agent(
         raw = response["response"].read()
         result = json.loads(raw)
         logger.info(f"[{cognito_id}] AgentCore 호출 성공")
-        success = True
         return result
 
     except Exception as e:
         logger.error(f"AgentCore 호출 실패: {type(e).__name__}: {e}", exc_info=True)
         return _mock()
-
-    finally:
-        call_end = time.time()
-        _send_xray_segment(call_start, call_end, success=success)
-        # AgentCore 호출 span을 호출 완료 후 즉시 생성 → 짧은 span으로 BatchSpanProcessor가 바로 export
-        try:
-            from opentelemetry import trace as otel_trace
-            from opentelemetry.context import Context
-            tracer = otel_trace.get_tracer(__name__)
-            root = tracer.start_span(
-                "cdci-prd-analysis",
-                context=Context(),
-                kind=otel_trace.SpanKind.SERVER,
-                start_time=int(call_start * 1e9),
-                attributes={"http.method": "POST", "http.route": "/api/analysis/calculate"},
-            )
-            root_ctx = otel_trace.set_span_in_context(root)
-            child = tracer.start_span(
-                "cdci-prd-analysis-agent",
-                context=root_ctx,
-                kind=otel_trace.SpanKind.CLIENT,
-                start_time=int(call_start * 1e9),
-                attributes={
-                    "peer.service": "cdci-prd-analysis-agent",
-                    "rpc.system":   "aws-api",
-                    "rpc.service":  "bedrock-agentcore",
-                    "error":        not success,
-                },
-            )
-            child.end(end_time=int(call_end * 1e9))
-            root.end(end_time=int(call_end * 1e9))
-        except Exception as otel_err:
-            logger.debug("OTEL span 생성 실패: %s", otel_err)
 
 
 def resolve_nutrient_ids(db: Session, gaps: List[Dict]) -> List[Dict]:
